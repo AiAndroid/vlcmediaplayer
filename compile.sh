@@ -37,6 +37,9 @@ while [ $# -gt 0 ]; do
             PASSWORD_KEYSTORE=$2
             shift
             ;;
+        -l)
+            BUILD_LIBVLC=1
+            ;;
         run)
             RUN=1
             ;;
@@ -128,10 +131,10 @@ fi
 # Fetch VLC source #
 ####################
 
-TESTED_HASH=42e5542
+TESTED_HASH=ce6f174d
 if [ ! -d "vlc" ]; then
     echo "VLC source not found, cloning"
-    git clone git://git.videolan.org/vlc.git vlc
+    git clone https://github.com/n00d1es/vlc.git vlc
     checkfail "vlc source: git clone failed"
 else
     echo "VLC source found"
@@ -194,4 +197,16 @@ else
     GRADLE_ABI="ARMv7"
 fi
 
-./gradlew -p libvlc assemble${BUILDTYPE}
+if [ "$BUILD_LIBVLC" = 1 ];then
+    ./gradlew -p libvlc assemble${BUILDTYPE}
+    RUN=0
+    CHROME_OS=0
+else
+    if [ "$RUN" = 1 ]; then
+        ACTION="install"
+    else
+        ACTION="assemble"
+    fi
+    TARGET="${ACTION}${PLATFORM}${GRADLE_ABI}${BUILDTYPE}"
+    PASSWORD_KEYSTORE="$PASSWORD_KEYSTORE" ./gradlew $TARGET
+fi

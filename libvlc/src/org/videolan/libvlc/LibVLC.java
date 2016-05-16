@@ -62,6 +62,11 @@ public class LibVLC extends VLCObject<LibVLC.Event> {
             }
         }
 
+        if (options == null) {
+            options = new ArrayList<String>();
+        }
+        options.add("--verbose=100000");
+
         // set aout/vout options if they are not set
         if (setAout || setChroma) {
             if (options == null)

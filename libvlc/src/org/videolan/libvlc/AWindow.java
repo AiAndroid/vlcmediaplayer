@@ -406,12 +406,14 @@ public class AWindow implements IVLCVout {
 
     private void setNativeSurface(int id, Surface surface) {
         synchronized (mNativeLock) {
+            Log.d(TAG, "setNativeSurface");
             mSurfaces[id] = surface;
         }
     }
 
     private Surface getNativeSurface(int id) {
         synchronized (mNativeLock) {
+            Log.d(TAG, "getNativeSurface");
             return mSurfaces[id];
         }
     }

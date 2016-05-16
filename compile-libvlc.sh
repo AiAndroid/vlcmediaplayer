@@ -708,7 +708,7 @@ fi
 
 DBG_LIB_DIR=libvlc/jni/obj/local/${ANDROID_ABI}
 OUT_LIB_DIR=libvlc/jni/libs/${ANDROID_ABI}
-VERSION=$(grep "android:versionName" vlc-android/AndroidManifest.xml|cut -d\" -f 2)
+VERSION=$(grep "android:versionName" videoplayer/AndroidManifest.xml|cut -d\" -f 2)
 OUT_DBG_DIR=.dbg/${ANDROID_ABI}/$VERSION
 
 echo "Dumping dbg symbols info ${OUT_DBG_DIR}"

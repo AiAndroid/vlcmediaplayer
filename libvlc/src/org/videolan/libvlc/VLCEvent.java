@@ -22,8 +22,8 @@ package org.videolan.libvlc;
 
 abstract class VLCEvent {
     public final int type;
-    protected final long arg1;
-    protected final float arg2;
+    public final long arg1;
+    public final float arg2;
 
     protected VLCEvent(int type) {
         this.type = type;

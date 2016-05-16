@@ -38,9 +38,12 @@ import org.videolan.libvlc.Media;
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.util.Map;
+import android.util.Log;
 
 public class MediaPlayer
 {
+    private static final String TAG = "MediaPlayer";
+
     public static final int MEDIA_ERROR_UNKNOWN = 1;
     public static final int MEDIA_ERROR_SERVER_DIED = 100;
     public static final int MEDIA_ERROR_NOT_VALID_FOR_PROGRESSIVE_PLAYBACK = 200;
@@ -55,6 +58,7 @@ public class MediaPlayer
     public static final int MEDIA_INFO_VIDEO_TRACK_LAGGING = 700;
     public static final int MEDIA_INFO_BUFFERING_START = 701;
     public static final int MEDIA_INFO_BUFFERING_END = 702;
+    public static final int MEDIA_INFO_BUFFERING_UPDATE = 770;
     public static final int MEDIA_INFO_BAD_INTERLEAVING = 800;
     public static final int MEDIA_INFO_NOT_SEEKABLE = 801;
     public static final int MEDIA_INFO_METADATA_UPDATE = 802;
@@ -71,6 +75,7 @@ public class MediaPlayer
     private org.videolan.libvlc.MediaPlayer mMediaPlayer;
 
     public MediaPlayer() {
+        Log.i(TAG, "Create media player");
         mLibVLC = new LibVLC(); //FIXME, this is wrong
         mMediaPlayer = new org.videolan.libvlc.MediaPlayer(mLibVLC);
     }
@@ -107,18 +112,21 @@ public class MediaPlayer
     // FIXME, this is INCORRECT, @headers are ignored
     public void setDataSource(Context context, Uri uri, Map<String, String> headers)
             throws IOException, IllegalArgumentException, SecurityException, IllegalStateException {
+        Log.i(TAG, "setDataSource");
         mCurrentMedia = new Media(mLibVLC, uri);
         mMediaPlayer.setMedia(mCurrentMedia);
     }
 
     public void setDataSource(String path)
             throws IOException, IllegalArgumentException, SecurityException, IllegalStateException {
+        Log.i(TAG, "setDataSource");
         mCurrentMedia = new Media(mLibVLC, path);
         mMediaPlayer.setMedia(mCurrentMedia);
     }
 
     public void setDataSource(FileDescriptor fd)
             throws IOException, IllegalArgumentException, IllegalStateException {
+        Log.i(TAG, "setDataSource fd");
         mCurrentMedia = new Media(mLibVLC, fd);
         mMediaPlayer.setMedia(mCurrentMedia);
     }
@@ -130,33 +138,46 @@ public class MediaPlayer
     }
 
     public void prepare() throws IOException, IllegalStateException {
+        //mCurrentMedia.addOption(":video-paused");
+        Log.i(TAG, "prepare");
+        mMediaPlayer.setEventListener(mMediaPlayerListener);
+        mMediaPlayer.play();
     }
 
     public void prepareAsync() {
-        mCurrentMedia.addOption(":video-paused");
+        //mCurrentMedia.addOption(":video-paused");
+        Log.i(TAG, "prepareAsync");
+        mMediaPlayer.setEventListener(mMediaPlayerListener);
         mMediaPlayer.play();
     }
 
     public void setDisplay(SurfaceHolder sh) {
+        Log.i(TAG, "setDisplay_sh");
         mMediaPlayer.getVLCVout().setVideoSurface(sh.getSurface(), sh);
+        mMediaPlayer.getVLCVout().attachViews();
     }
 
     public void setSurface(Surface surface) {
+        Log.i(TAG, "setSurface");
         mMediaPlayer.getVLCVout().setVideoSurface(surface, null);
+        mMediaPlayer.getVLCVout().attachViews();
     }
 
     public void setVideoScalingMode(int mode) {
     }
 
     public void start() throws IllegalStateException {
+        Log.i(TAG, "start");
         mMediaPlayer.play();
     }
 
     public void stop() throws IllegalStateException {
+        Log.i(TAG, "stop");
         mMediaPlayer.stop();
     }
 
     public void pause() throws IllegalStateException {
+        Log.i(TAG, "pause");
         mMediaPlayer.pause();
     }
 
@@ -179,6 +200,8 @@ public class MediaPlayer
     }
 
     public void seekTo(int msec) throws IllegalStateException {
+        Log.i(TAG, "seekTo");
+        mMediaPlayer.setTime(msec);
     }
 
     // This is of course, less precise than VLC
@@ -195,7 +218,11 @@ public class MediaPlayer
     }
 
     public void release() {
+        Log.i(TAG, "release");
+        mMediaPlayer.getVLCVout().detachViews();
         mMediaPlayer.release();
+        mCurrentMedia.release();
+        mLibVLC.release();
     }
 
     public void reset() {
@@ -313,7 +340,10 @@ public class MediaPlayer
     }
 
     public void setOnPreparedListener(OnPreparedListener listener) {
+        mOnPreparedListener = listener;
     }
+
+    private OnPreparedListener mOnPreparedListener;
 
     public interface OnCompletionListener
     {
@@ -321,7 +351,10 @@ public class MediaPlayer
     }
 
     public void setOnCompletionListener(OnCompletionListener listener) {
+        mOnCompletionListener = listener;
     }
+
+    private OnCompletionListener mOnCompletionListener;
 
     public interface OnBufferingUpdateListener
     {
@@ -329,7 +362,10 @@ public class MediaPlayer
     }
 
     public void setOnBufferingUpdateListener(OnBufferingUpdateListener listener) {
+        mOnBufferingUpdateListener = listener;
     }
+
+    private OnBufferingUpdateListener mOnBufferingUpdateListener;
 
     public interface OnSeekCompleteListener
     {
@@ -369,5 +405,67 @@ public class MediaPlayer
     }
 
     public void setOnInfoListener(OnInfoListener listener) {
+        mOnInfoListener = listener;
     }
+
+    private OnInfoListener mOnInfoListener;
+
+    private final org.videolan.libvlc.MediaPlayer.EventListener mMediaPlayerListener = new org.videolan.libvlc.MediaPlayer.EventListener() {
+
+        @Override
+        public void onEvent(org.videolan.libvlc.MediaPlayer.Event event) {
+            switch (event.type) {
+                case org.videolan.libvlc.MediaPlayer.Event.Buffering:
+                    Log.i(TAG, "MediaPlayer.Event.Buffering" + event.arg2);
+                    int what = MEDIA_INFO_UNKNOWN;
+                    int extra = 0;
+                    if (event.arg2 == .0f) {
+                        what = MEDIA_INFO_BUFFERING_START;
+                    } else if (event.arg2 == 100.f) {
+                        what = MEDIA_INFO_BUFFERING_END;
+                    } else {
+                        what = MEDIA_INFO_BUFFERING_UPDATE;
+                        extra = (int)event.arg2;
+                    }
+                    if (mOnInfoListener != null) {
+                        mOnInfoListener.onInfo(MediaPlayer.this, what, extra);
+                    }
+                    break;
+                case org.videolan.libvlc.MediaPlayer.Event.Playing:
+                    Log.i(TAG, "MediaPlayer.Event.Playing");
+                    if (mOnPreparedListener != null) {
+                        mOnPreparedListener.onPrepared(MediaPlayer.this);
+                    }
+                    break;
+                case org.videolan.libvlc.MediaPlayer.Event.Paused:
+                    Log.i(TAG, "MediaPlayer.Event.Paused");
+                    break;
+                case org.videolan.libvlc.MediaPlayer.Event.Stopped:
+                    Log.i(TAG, "MediaPlayer.Event.Stopped");
+                    break;
+                case org.videolan.libvlc.MediaPlayer.Event.EndReached:
+                    Log.i(TAG, "MediaPlayer.Event.EndReached");
+                    if (mOnCompletionListener != null) {
+                        mOnCompletionListener.onCompletion(MediaPlayer.this);
+                    }
+                    break;
+                case org.videolan.libvlc.MediaPlayer.Event.EncounteredError:
+                    break;
+                case org.videolan.libvlc.MediaPlayer.Event.TimeChanged:
+                    break;
+                case org.videolan.libvlc.MediaPlayer.Event.PositionChanged:
+                    break;
+                case org.videolan.libvlc.MediaPlayer.Event.Vout:
+                    break;
+                case org.videolan.libvlc.MediaPlayer.Event.ESAdded:
+                    break;
+                case org.videolan.libvlc.MediaPlayer.Event.ESDeleted:
+                    break;
+                case org.videolan.libvlc.MediaPlayer.Event.PausableChanged:
+                    break;
+                case org.videolan.libvlc.MediaPlayer.Event.SeekableChanged:
+                    break;
+            }
+        }
+    };
 }
